@@ -1,60 +1,84 @@
 ## 2c)
-from threading import Thread, Lock
+
+import threading
 import time
 import random
 
-work = True
-count_readers = 0
+mutex = threading.Lock()
+mutex_reader = threading.Lock()
+countReaders = 0
 variable = 0
 
-readLock = Lock()
-mutLock = Lock()
+def reader(_id):
+    global variable, countReaders
+    while True:
+        time.sleep(random.uniform(0.5, 2.5))
+        
+        # Går inn i felles
+        mutex_reader.acquire()
+        if countReaders == 0:
+            mutex.acquire()
+        countReaders += 1
+        mutex_reader.release()
 
-def reading(_id):
-    global count_readers, variable, work
-    
-    while(work):
-        mutLock.acquire()
-        if count_readers == 0:
-            readLock.acquire()
-        count_readers = count_readers + 1
-        mutLock.release()
-        
-        print('>>> ', "Reader thread " + str(_id) + " reading variable value " + str(variable))
+        # Leser
+        print(f"Reader thread {_id} reading variable value {variable}")
         time.sleep(1)
+
+        # Går ut av felles
+        mutex_reader.acquire()
+        countReaders -= 1
+        if countReaders == 0:
+            mutex.release()
+        mutex_reader.release()
+
+
+def writer(_id):
+    global variable
+    while True:
+
+        time.sleep(random.uniform(0.5, 2.5))
         
-        mutLock.acquire()
-        count_readers = count_readers - 1
-        if count_readers == 0:
-            readLock.release()
-        mutLock.release()
-        
-        time.sleep(random.uniform(0,3))
-        
-    
-def writing():
-    global variable, work
-    
-    while(work):
-        readLock.acquire()
-        variable  =  random.randint(1, 10)
-        print('>>> ', "Writer thread setting variable value " + str(variable))
-        readLock.release()
-        
-        time.sleep(random.uniform(0,1))
+        number = random.randint(0, 100)
+
+        mutex.acquire()
+        variable = number
+        print(f"Writer thread {_id} setting variable value to {number}")
+        mutex.release()
+
+
+
+
 
 def main():
-    global work
+    print("Starting")
+
+    tw1 = threading.Thread(target=writer, args=[1])
+    tw2 = threading.Thread(target=writer, args=[2])
+
+    tr1 = threading.Thread(target=reader, args=[1])
+    tr2 = threading.Thread(target=reader, args=[2])
+    tr3 = threading.Thread(target=reader, args=[3])
+
     
-    writer = Thread(target = writing)
-    writer.start()
-    
-    N_readers = 3
-    readers = [Thread(target = reading, args = (i+1,)) for i in range(N_readers)] 
-    for reader in readers: reader.start()
-    
-    time.sleep(15)
-    work = False
+    tw1.start()
+    tw2.start()
+    tr1.start()
+    tr2.start()
+    tr3.start()
+
+    # tw1.join()
+    # tw2.join()
+    # tr1.join()
+    # tr2.join()
+    # tr3.join()
+
+    # Holder main i livet
+    try:
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("Avsultter programmet")
 
 
 main()
